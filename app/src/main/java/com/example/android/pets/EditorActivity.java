@@ -122,7 +122,6 @@ public class    EditorActivity extends AppCompatActivity {
         String breedString = mBreedEditText.getText().toString().trim();
         String weightString = mWeightEditText.getText().toString().trim();
         int weight = Integer.parseInt(weightString);
-
         // Create database helper
 //        PetDbHelper mDbHelper = new PetDbHelper(this);
         PetProvider pp = new PetProvider();
@@ -181,5 +180,9 @@ public class    EditorActivity extends AppCompatActivity {
                 return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+    private void deletePet(){
+        ContentValues values = new ContentValues();
+//        values.put(PetEntry.Col)
     }
 }

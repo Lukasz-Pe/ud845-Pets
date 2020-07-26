@@ -79,6 +79,18 @@ public class PetProvider extends ContentProvider {
 
     private Uri insertPet(Uri uri, ContentValues values){
         SQLiteDatabase db = petdb.getWritableDatabase();
+        String name = values.getAsString(PetContract.PetEntry.COLUMN_PET_NAME);
+        Integer gender = values.getAsInteger(PetContract.PetEntry.COLUMN_PET_GENDER);
+        Integer weight = values.getAsInteger(PetContract.PetEntry.COLUMN_PET_WEIGHT);
+        if(name==null){
+            throw new IllegalArgumentException("Pet requires a name!");
+        }
+        if(gender==null||!PetContract.PetEntry.isValidGender(gender)){
+            throw new IllegalArgumentException("Gender out of allowed values!");
+        }
+        if(weight<0||weight==null){
+            throw new IllegalArgumentException("Weight has to be greater than 0");
+        }
         long id = db.insert(PetContract.PetEntry.TABLE_NAME, null, values);
         if(id<0){
             Log.e(LOG_TAG, "Failed to insert row for " + uri);
@@ -92,7 +104,46 @@ public class PetProvider extends ContentProvider {
      */
     @Override
     public int update(Uri uri, ContentValues contentValues, String selection, String[] selectionArgs) {
-        return 0;
+        if(contentValues.size()==0){
+            return 0;
+        }
+        switch(sUriMatcher.match(uri)){
+            case PETS:{
+                return updatePet(uri, contentValues, selection, selectionArgs);
+            }
+            case PET_ID:{
+                selection= PetContract.PetEntry._ID+"=?";
+                selectionArgs=new String[]{String.valueOf(ContentUris.parseId(uri))};
+                return updatePet(uri, contentValues, selection, selectionArgs);
+            }
+            default:{
+                throw new IllegalArgumentException("Unable to update unknown URI: " + uri);
+            }
+        }
+    }
+
+    private int updatePet(Uri uri, ContentValues values, String selection, String[] selectionArgs) {
+        if(values.containsKey(PetContract.PetEntry.COLUMN_PET_NAME)){
+            String name = values.getAsString(PetContract.PetEntry.COLUMN_PET_NAME);
+            if(name==null){
+                throw new IllegalArgumentException("Pet requires a name!");
+            }
+        }
+        if(values.containsKey(PetContract.PetEntry.COLUMN_PET_GENDER)){
+            Integer gender = values.getAsInteger(PetContract.PetEntry.COLUMN_PET_GENDER);
+            if(gender==null||!PetContract.PetEntry.isValidGender(gender)){
+                throw new IllegalArgumentException("Gender out of allowed values!");
+            }
+        }
+        if(values.containsKey(PetContract.PetEntry.COLUMN_PET_WEIGHT)){
+            Integer weight = values.getAsInteger(PetContract.PetEntry.COLUMN_PET_WEIGHT);
+            if(weight<0||weight==null){
+                throw new IllegalArgumentException("Weight has to be greater than 0");
+            }
+        }
+        SQLiteDatabase db = petdb.getWritableDatabase();
+
+        return db.update(PetContract.PetEntry.TABLE_NAME,values,selection,selectionArgs);
     }
 
     /**
@@ -100,7 +151,20 @@ public class PetProvider extends ContentProvider {
      */
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
-        return 0;
+        SQLiteDatabase db = petdb.getWritableDatabase();
+
+    switch (sUriMatcher.match(uri)) {
+        case PETS:
+            // Delete all rows that match the selection and selection args
+            return db.delete(PetContract.PetEntry.TABLE_NAME, selection, selectionArgs);
+        case PET_ID:
+             // Delete a single row given by the ID in the URI
+            selection = PetContract.PetEntry._ID + "=?";
+            selectionArgs = new String[] { String.valueOf(ContentUris.parseId(uri)) };
+            return db.delete(PetContract.PetEntry.TABLE_NAME, selection, selectionArgs);
+        default:
+            throw new IllegalArgumentException("Deletion is not supported for " + uri);
+    }
     }
 
     /**
@@ -108,6 +172,17 @@ public class PetProvider extends ContentProvider {
      */
     @Override
     public String getType(Uri uri) {
-        return null;
+        final int match = sUriMatcher.match(uri);
+        switch(match){
+            case PETS:{
+                return PetContract.PetEntry.CONTENT_LIST_TYPE;
+            }
+            case PET_ID:{
+                return PetContract.PetEntry.CONTENT_ITEM_TYPE;
+            }
+            default:{
+                throw new IllegalArgumentException("Unknown URI " + uri + " with match " + match);
+            }
+        }
     }
 }
