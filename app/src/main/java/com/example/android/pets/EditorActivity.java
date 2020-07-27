@@ -47,6 +47,8 @@ import static com.example.android.pets.data.PetContract.PetEntry.COLUMN_PET_GEND
 import static com.example.android.pets.data.PetContract.PetEntry.COLUMN_PET_NAME;
 import static com.example.android.pets.data.PetContract.PetEntry.COLUMN_PET_WEIGHT;
 import static com.example.android.pets.data.PetContract.PetEntry.CONTENT_URI;
+import static com.example.android.pets.data.PetContract.PetEntry.GENDER_UNKNOWN;
+import static com.example.android.pets.data.PetContract.PetEntry.TABLE_NAME;
 import static com.example.android.pets.data.PetContract.PetEntry._ID;
 
 /**
@@ -93,6 +95,7 @@ public class    EditorActivity extends AppCompatActivity implements LoaderManage
             getLoaderManager().initLoader(EXISTING_PET_LOADER, null, this);
         }else{
             setTitle(R.string.editor_activity_title_new_pet);
+            invalidateOptionsMenu();
         }
 
         // Find all relevant views that we will need to read user input from
@@ -157,13 +160,17 @@ public class    EditorActivity extends AppCompatActivity implements LoaderManage
         String nameString = mNameEditText.getText().toString().trim();
         String breedString = mBreedEditText.getText().toString().trim();
         String weightString = mWeightEditText.getText().toString().trim();
-
-        if(!nameString.isEmpty()||!weightString.isEmpty()||mGender==PetEntry.GENDER_UNKNOWN){
+        int weight=0;
+        if(nameString.isEmpty()||weightString.isEmpty()||mGender==GENDER_UNKNOWN){
             Toast.makeText(this, getString(R.string.invalid_data), Toast.LENGTH_SHORT).show();
             return;
         }
-
-        int weight = Integer.parseInt(weightString);
+        if(breedString.isEmpty()){
+            breedString=getString(R.string.unknown_breed);
+        }
+        if(!weightString.isEmpty()){
+            weight = Integer.parseInt(weightString);
+        }
         PetProvider pp = new PetProvider();
 
         // Create a ContentValues object where column names are the keys,
@@ -200,6 +207,15 @@ public class    EditorActivity extends AppCompatActivity implements LoaderManage
     }
 
     @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        super.onPrepareOptionsMenu(menu);
+        if(intent.getData()==null){
+            menu.findItem(R.id.action_delete).setVisible(false);
+        }
+        return true;
+    }
+
+    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         // User clicked on a menu option in the app bar overflow menu
         switch (item.getItemId()) {
@@ -212,7 +228,8 @@ public class    EditorActivity extends AppCompatActivity implements LoaderManage
                 return true;
             // Respond to a click on the "Delete" menu option
             case R.id.action_delete:
-                // Do nothing for now
+                getContentResolver().delete(intent.getData(),TABLE_NAME, PET_PROJECTION);
+                finish();
                 return true;
             // Respond to a click on the "Up" arrow button in the app bar
             case android.R.id.home:
@@ -305,4 +322,6 @@ public class    EditorActivity extends AppCompatActivity implements LoaderManage
         };
         unsavedChangesDialog(discardButtonClickListener);
     }
+
+
 }
