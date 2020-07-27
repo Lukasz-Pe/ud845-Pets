@@ -59,6 +59,9 @@ public class PetProvider extends ContentProvider {
                 throw new IllegalArgumentException("Unable to query unknown URI: " + uri);
             }
         }
+
+        cursor.setNotificationUri(getContext().getContentResolver(), uri);
+
         return cursor;
     }
 
@@ -96,6 +99,9 @@ public class PetProvider extends ContentProvider {
             Log.e(LOG_TAG, "Failed to insert row for " + uri);
             return null;
         }
+
+        getContext().getContentResolver().notifyChange(uri,null);
+
         return ContentUris.withAppendedId(uri, id);
     }
 
@@ -143,6 +149,8 @@ public class PetProvider extends ContentProvider {
         }
         SQLiteDatabase db = petdb.getWritableDatabase();
 
+        getContext().getContentResolver().notifyChange(uri,null);
+
         return db.update(PetContract.PetEntry.TABLE_NAME,values,selection,selectionArgs);
     }
 
@@ -152,19 +160,27 @@ public class PetProvider extends ContentProvider {
     @Override
     public int delete(Uri uri, String selection, String[] selectionArgs) {
         SQLiteDatabase db = petdb.getWritableDatabase();
-
+        int rowsDeleted;
     switch (sUriMatcher.match(uri)) {
-        case PETS:
+        case PETS:{
             // Delete all rows that match the selection and selection args
-            return db.delete(PetContract.PetEntry.TABLE_NAME, selection, selectionArgs);
-        case PET_ID:
+            rowsDeleted = db.delete(PetContract.PetEntry.TABLE_NAME, selection, selectionArgs);
+            break;
+            }
+        case PET_ID:{
              // Delete a single row given by the ID in the URI
             selection = PetContract.PetEntry._ID + "=?";
             selectionArgs = new String[] { String.valueOf(ContentUris.parseId(uri)) };
-            return db.delete(PetContract.PetEntry.TABLE_NAME, selection, selectionArgs);
+            rowsDeleted = db.delete(PetContract.PetEntry.TABLE_NAME, selection, selectionArgs);
+            break;
+            }
         default:
             throw new IllegalArgumentException("Deletion is not supported for " + uri);
     }
+        if (rowsDeleted != 0){
+            getContext().getContentResolver().notifyChange(uri,null);
+        }
+        return rowsDeleted;
     }
 
     /**
