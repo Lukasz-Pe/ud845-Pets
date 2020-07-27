@@ -15,15 +15,23 @@
  */
 package com.example.android.pets;
 
+import android.app.AlertDialog;
+import android.app.LoaderManager;
 import android.content.ContentValues;
-import android.database.sqlite.SQLiteDatabase;
+import android.content.CursorLoader;
+import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.Loader;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.MotionEvent;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -32,13 +40,19 @@ import android.widget.Spinner;
 import android.widget.Toast;
 
 import com.example.android.pets.data.PetContract.PetEntry;
-import com.example.android.pets.data.PetDbHelper;
 import com.example.android.pets.data.PetProvider;
+
+import static com.example.android.pets.data.PetContract.PetEntry.COLUMN_PET_BREED;
+import static com.example.android.pets.data.PetContract.PetEntry.COLUMN_PET_GENDER;
+import static com.example.android.pets.data.PetContract.PetEntry.COLUMN_PET_NAME;
+import static com.example.android.pets.data.PetContract.PetEntry.COLUMN_PET_WEIGHT;
+import static com.example.android.pets.data.PetContract.PetEntry.CONTENT_URI;
+import static com.example.android.pets.data.PetContract.PetEntry._ID;
 
 /**
  * Allows user to create a new pet or edit an existing one.
  */
-public class    EditorActivity extends AppCompatActivity {
+public class    EditorActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor> {
 
     /** EditText field to enter the pet's name */
     private EditText mNameEditText;
@@ -59,16 +73,38 @@ public class    EditorActivity extends AppCompatActivity {
      */
     private int mGender = PetEntry.GENDER_UNKNOWN;
 
+    private Intent intent;
+    private static final String[] PET_PROJECTION=new String[]{
+            _ID,
+            COLUMN_PET_NAME,
+            COLUMN_PET_BREED,
+            COLUMN_PET_WEIGHT,
+            COLUMN_PET_GENDER
+    };
+    private static final int EXISTING_PET_LOADER = 0;
+    private boolean petHasChanged=false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_editor);
+        intent = getIntent();
+        if(intent.getData()!=null){
+            setTitle(R.string.edit_pet);
+            getLoaderManager().initLoader(EXISTING_PET_LOADER, null, this);
+        }else{
+            setTitle(R.string.editor_activity_title_new_pet);
+        }
 
         // Find all relevant views that we will need to read user input from
         mNameEditText = (EditText) findViewById(R.id.edit_pet_name);
         mBreedEditText = (EditText) findViewById(R.id.edit_pet_breed);
         mWeightEditText = (EditText) findViewById(R.id.edit_pet_weight);
         mGenderSpinner = (Spinner) findViewById(R.id.spinner_gender);
+
+        mNameEditText.setOnTouchListener(onTouchListener);
+        mBreedEditText.setOnTouchListener(onTouchListener);
+        mWeightEditText.setOnTouchListener(onTouchListener);
+        mGenderSpinner.setOnTouchListener(onTouchListener);
 
         setupSpinner();
     }
@@ -115,18 +151,20 @@ public class    EditorActivity extends AppCompatActivity {
     /**
      * Get user input from editor and save new pet into database.
      */
-    private void insertPet() {
+    private void savePet() {
         // Read from input fields
         // Use trim to eliminate leading or trailing white space
         String nameString = mNameEditText.getText().toString().trim();
         String breedString = mBreedEditText.getText().toString().trim();
         String weightString = mWeightEditText.getText().toString().trim();
+
+        if(!nameString.isEmpty()||!weightString.isEmpty()||mGender==PetEntry.GENDER_UNKNOWN){
+            Toast.makeText(this, getString(R.string.invalid_data), Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         int weight = Integer.parseInt(weightString);
-        // Create database helper
-//        PetDbHelper mDbHelper = new PetDbHelper(this);
         PetProvider pp = new PetProvider();
-        // Gets the database in write mode
-//        SQLiteDatabase db = mDbHelper.getWritableDatabase();
 
         // Create a ContentValues object where column names are the keys,
         // and pet attributes from the editor are the values.
@@ -138,15 +176,18 @@ public class    EditorActivity extends AppCompatActivity {
 
         // Insert a new row for pet in the database, returning the ID of that new row.
 //        long newRowId = db.insert(PetEntry.TABLE_NAME, null, values);
-        Uri newRowId = getContentResolver().insert(PetEntry.CONTENT_URI,values);
-
-        // Show a toast message depending on whether or not the insertion was successful
-        if (newRowId == null) {
-            // If the row ID is -1, then there was an error with insertion.
-            Toast.makeText(this, getString(R.string.editor_insert_pet_failed), Toast.LENGTH_SHORT).show();
-        } else {
-            // Otherwise, the insertion was successful and we can display a toast with the row ID.
-            Toast.makeText(this, getString(R.string.editor_insert_pet_successful), Toast.LENGTH_SHORT).show();
+        if(intent.getData()==null){
+            Uri newRowId = getContentResolver().insert(PetEntry.CONTENT_URI,values);
+            if (newRowId == null) {
+                // If the row ID is -1, then there was an error with insertion.
+                Toast.makeText(this, getString(R.string.editor_insert_pet_failed), Toast.LENGTH_SHORT).show();
+            } else {
+                // Otherwise, the insertion was successful and we can display a toast with the row ID.
+                Toast.makeText(this, getString(R.string.editor_insert_pet_successful), Toast.LENGTH_SHORT).show();
+            }
+        }else{
+            int affectedRows = getContentResolver().update(intent.getData(),values,PetEntry.TABLE_NAME,PET_PROJECTION);
+            Toast.makeText(this, getString(R.string.updated_rows) + affectedRows, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -165,7 +206,7 @@ public class    EditorActivity extends AppCompatActivity {
             // Respond to a click on the "Save" menu option
             case R.id.action_save:
                 // Save pet to database
-                insertPet();
+                savePet();
                 // Exit activity
                 finish();
                 return true;
@@ -175,8 +216,18 @@ public class    EditorActivity extends AppCompatActivity {
                 return true;
             // Respond to a click on the "Up" arrow button in the app bar
             case android.R.id.home:
-                // Navigate back to parent activity (CatalogActivity)
-                NavUtils.navigateUpFromSameTask(this);
+                if(!petHasChanged){
+                    // Navigate back to parent activity (CatalogActivity)
+                    NavUtils.navigateUpFromSameTask(this);
+                    return true;
+                }
+                DialogInterface.OnClickListener discardButtonClickListener = new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        NavUtils.navigateUpFromSameTask(EditorActivity.this);
+                    }
+                };
+                unsavedChangesDialog(discardButtonClickListener);
                 return true;
         }
         return super.onOptionsItemSelected(item);
@@ -184,5 +235,74 @@ public class    EditorActivity extends AppCompatActivity {
     private void deletePet(){
         ContentValues values = new ContentValues();
 //        values.put(PetEntry.Col)
+    }
+
+    @Override
+    public Loader<Cursor> onCreateLoader(int id, Bundle args) {
+        return new CursorLoader(this,
+            intent.getData(),
+            PET_PROJECTION,
+            null,null,null);
+    }
+
+    @Override
+    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+        if(data.moveToFirst()){
+            mNameEditText.setText(data.getString(data.getColumnIndex(COLUMN_PET_NAME)));
+            mBreedEditText.setText(data.getString(data.getColumnIndex(COLUMN_PET_BREED)));
+            mWeightEditText.setText(data.getString(data.getColumnIndex(COLUMN_PET_WEIGHT)));
+            int gender = data.getInt(data.getColumnIndex(COLUMN_PET_GENDER));
+            if(PetEntry.isValidGender(gender)){
+                mGenderSpinner.setSelection(gender);
+            }else{
+                mGenderSpinner.setSelection(0);
+            }
+        }
+    }
+
+    @Override
+    public void onLoaderReset(Loader<Cursor> loader) {
+        mNameEditText.setText("");
+        mBreedEditText.setText("");
+        mGenderSpinner.setSelection(0);
+        mWeightEditText.setText("");
+    }
+    View.OnTouchListener onTouchListener = new View.OnTouchListener(){
+        @Override
+        public boolean onTouch(View v, MotionEvent event) {
+            petHasChanged = true;
+            return false;
+        }
+    };
+
+    private void unsavedChangesDialog(DialogInterface.OnClickListener discardButtonClickListener){
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage(R.string.unsaved_changes_dialog_msg);
+        builder.setPositiveButton(R.string.discard, discardButtonClickListener);
+        builder.setNegativeButton(R.string.keep_editing, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                if(dialog!=null){
+                    dialog.dismiss();
+                }
+            }
+        });
+        AlertDialog alertDialog = builder.create();
+        alertDialog.show();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if(!petHasChanged){
+        super.onBackPressed();
+        return;
+        }
+        DialogInterface.OnClickListener discardButtonClickListener = new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialog, int which) {
+                finish();
+            }
+        };
+        unsavedChangesDialog(discardButtonClickListener);
     }
 }

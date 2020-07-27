@@ -34,8 +34,11 @@ import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ListView;
 
+import com.example.android.pets.data.PetContract;
 import com.example.android.pets.data.PetContract.PetEntry;
 import com.example.android.pets.data.PetDbHelper;
+
+import static com.example.android.pets.data.PetContract.PetEntry.*;
 
 /**
  * Displays list of pets that were entered and stored in the app.
@@ -48,14 +51,13 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
 
     //LoaderManager vars
     private static final int PET_LOADER = 0;
-    String curFilter;
 
     static final String[] PET_PROJECTION=new String[]{
-            PetEntry._ID,
-            PetEntry.COLUMN_PET_NAME,
-            PetEntry.COLUMN_PET_BREED,
-            PetEntry.COLUMN_PET_WEIGHT,
-            PetEntry.COLUMN_PET_GENDER
+            _ID,
+            COLUMN_PET_NAME,
+            COLUMN_PET_BREED,
+            COLUMN_PET_WEIGHT,
+            COLUMN_PET_GENDER
     };
 
     @Override
@@ -84,6 +86,19 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
         petAdapter = new PetCursorAdapter(this, null);
         lvItems.setAdapter(petAdapter);
 
+        //enter edit activity
+        lvItems.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
+//                Intent editPet = new Intent(Intent.ACTION_EDIT,ContentUris.withAppendedId(CONTENT_URI,id));
+                Intent editPet = new Intent(CatalogActivity.this,EditorActivity.class);
+                Uri contentURI = ContentUris.withAppendedId(CONTENT_URI, id);
+                editPet.setData(contentURI);
+                startActivity(editPet);
+            }
+        });
+
+
         getSupportLoaderManager().initLoader(PET_LOADER, null, this);
     }
 
@@ -95,10 +110,10 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
         // Create a ContentValues object where column names are the keys,
         // and Toto's pet attributes are the values.
         ContentValues values = new ContentValues();
-        values.put(PetEntry.COLUMN_PET_NAME, "Toto");
-        values.put(PetEntry.COLUMN_PET_BREED, "Terrier");
-        values.put(PetEntry.COLUMN_PET_GENDER, PetEntry.GENDER_MALE);
-        values.put(PetEntry.COLUMN_PET_WEIGHT, 7);
+        values.put(COLUMN_PET_NAME, "Toto");
+        values.put(COLUMN_PET_BREED, "Terrier");
+        values.put(COLUMN_PET_GENDER, GENDER_MALE);
+        values.put(COLUMN_PET_WEIGHT, 7);
 
         // Insert a new row for Toto in the database, returning the ID of that new row.
         // The first argument for db.insert() is the pets table name.
@@ -107,7 +122,7 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
         // this is set to "null", then the framework will not insert a row when
         // there are no values).
         // The third argument is the ContentValues object containing the info for Toto.
-        Uri newUri = getContentResolver().insert(PetEntry.CONTENT_URI, values);
+        Uri newUri = getContentResolver().insert(CONTENT_URI, values);
     }
 
     @Override
@@ -134,13 +149,13 @@ public class CatalogActivity extends AppCompatActivity implements LoaderManager.
         return super.onOptionsItemSelected(item);
     }
     private void purgeDatabase(){
-        int newUri = getContentResolver().delete(PetEntry.CONTENT_URI,null, null);
+        int newUri = getContentResolver().delete(CONTENT_URI,null, null);
     }
 
     @Override
     public Loader<Cursor> onCreateLoader(int id, Bundle args) {
         return new CursorLoader(this,
-            PetEntry.CONTENT_URI,
+            CONTENT_URI,
             PET_PROJECTION,
             null,null,null);
     }
